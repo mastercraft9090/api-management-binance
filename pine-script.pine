@@ -1,0 +1,110 @@
+//@version=4
+strategy("Percent Trailing Stop %", overlay=true)
+study(title="Ichimoku With Signals", shorttitle="Ichimoku", overlay=true)
+
+tenkanPeriods = input(9, minval=1, title="Tenkan-sen Periods")
+kijunPeriods = input(26, minval=1, title="Kijun-sen Periods")
+chikouPeriods = input(52, minval=1, title="Chikou Periods")
+displacement = input(26, minval=1, title="Offset")
+
+donchian(len) => avg(lowest(len), highest(len))
+
+tenkan = donchian(tenkanPeriods)
+kijun = donchian(kijunPeriods)
+senkouA = avg(tenkan, kijun)
+senkouB = donchian(chikouPeriods)
+displacedSenkouA = senkouA[displacement]
+displacedSenkouB = senkouB[displacement]
+
+bullishSignal = crossover(tenkan, kijun)
+bullishSignalValues = iff(bullishSignal, tenkan, na)
+bearishSignal = crossunder(tenkan, kijun)
+bearishSignalValues = iff(bearishSignal, tenkan, na)
+
+strongBullishSignal = bullishSignalValues > displacedSenkouA and bullishSignalValues > displacedSenkouB
+neutralBullishSignal = (bullishSignalValues > displacedSenkouA and bullishSignalValues < displacedSenkouB) or (bullishSignalValues < displacedSenkouA and bullishSignalValues > displacedSenkouB)
+weakBullishSignal = bullishSignalValues < displacedSenkouA and bullishSignalValues < displacedSenkouB
+
+strongBearishSignal = bearishSignalValues < displacedSenkouA and bearishSignalValues < displacedSenkouB
+neutralBearishSignal = (bearishSignalValues > displacedSenkouA and bearishSignalValues < displacedSenkouB) or (bearishSignalValues < displacedSenkouA and bearishSignalValues > displacedSenkouB)
+weakBearishSignal = bearishSignalValues > displacedSenkouA and bearishSignalValues > displacedSenkouB
+
+plotshape(strongBullishSignal, style=shape.triangleup, size=size.normal, location=location.abovebar, title="Strong Bullish Signals")
+plotshape(neutralBullishSignal, style=shape.triangleup, size=size.small, location=location.abovebar, title="Neutral Bullish Signals")
+plotshape(weakBullishSignal, style=shape.triangleup, size=size.tiny, location=location.abovebar, title="Weak Bullish Signals")
+
+plotshape(strongBearishSignal, style=shape.triangledown, size=size.normal, location=location.belowbar, title="Strong Bearish Signals")
+plotshape(neutralBearishSignal, style=shape.triangledown, size=size.small, location=location.belowbar, title="Neutral Bearish Signals")
+plotshape(weakBearishSignal, style=shape.triangledown, size=size.tiny, location=location.belowbar, title="Weak Bearish Signals")
+
+plot(tenkan, color=#0496ff, title="Tenkan-sen")
+plot(kijun, color=#991515, title="Kijun-sen")
+plot(close, offset = -displacement, color=#459915, title="Chikou")
+
+p1 = plot(senkouA, offset=displacement, color=color.green, title="Senkou A")
+p2 = plot(senkouB, offset=displacement, color=color.red,  title="Senkou B")
+fill(p1, p2, color = senkouA > senkouB ? color.green : color.red)
+
+// Chikou span is the lagging line
+// kijun is the is the B of the bullish signal
+// tenkan is the A of the bullishSignal
+
+//TRAILING STOP CODE
+if tenkan > kijun
+    trailStop = input(title="Long Trailing Stop (%)", type=input.float, minval=0.0, step=0.1, defval=3) * 0.01
+
+    longStopPrice = 0.0
+    shortStopPrice = 0.0
+    longStopPrice := if strategy.position_size > 0
+        stopValue = close * (1 - trailStop)
+        max(stopValue, longStopPrice[1])
+else kijun > tenkan
+        0
+    shortStopPrice := if strategy.position_size < 0
+        stopValue = close * (1 + trailStop)
+        min(stopValue, shortStopPrice[1])
+else
+    999999
+
+//PLOT TSL LINES
+plot(series=strategy.position_size > 0 ? longStopPrice : na, color=color.red, style=plot.style_linebr, linewidth=1, title="Long Trail Stop", offset=1, title="Long Trail Stop")
+plot(series=strategy.position_size < 0 ? shortStopPrice : na, color=color.red, style=plot.style_linebr, linewidth=1, title="Short Trail Stop", offset=1, title="Short Trail Stop")
+
+
+//EXIT TRADE @ TSL
+if strategy.position_size > 0
+    strategy.exit(id="Close Long", stop=longStopPrice)
+if strategy.position_size < 0
+    strategy.exit(id="Close Short", stop=shortStopPrice)
+
+// // Configure trail stop level with input options (optional)
+// longTrailPerc = input(title="Trail Long Loss (%)",
+//      type=float, minval=0.0, step=0.1, defval=3) * 0.01
+
+// shortTrailPerc = input(title="Trail Short Loss (%)",
+//      type=float, minval=0.0, step=0.1, defval=3) * 0.01
+
+// // Determine trail stop loss prices
+// longStopPrice = 0.0
+// longStopPrice := if (strategy.position_size > 0)
+//     stopValue = close * (1 - longTrailPerc)
+//     max(stopValue, longStopPrice[1])
+// else
+//     0
+
+// // Determine trailing short price
+// shortStopPrice = 0.0
+
+// shortStopPrice := if (strategy.position_size < 0)
+//     stopValue = close * (1 + shortTrailPerc)
+//     min(stopValue, shortStopPrice[1])
+// else
+//     999999
+
+// // Submit exit orders for trail stop loss price
+// if (strategy.position_size > 0)
+//     strategy.exit(id="XL TRL STP", stop=longStopPrice)
+
+// if (strategy.position_size < 0)
+//     strategy.exit(id="XS TRL STP", stop=shortStopPrice)
+

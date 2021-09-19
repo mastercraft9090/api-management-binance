@@ -1,0 +1,15 @@
+requests 
+smtplib
+from binance.client import Client
+configparser
+json
+os
+time
+pprint
+numpy as np
+threading import Thread
+from binance.enums import *
+# from bfxhfindicators import
+urllib.request
+asyncio
+# from binance import AsyncClient
